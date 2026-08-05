@@ -1,6 +1,6 @@
 schemaVersion: "1.0"
 id: rate-limit-recovery
-description: A local fixture backs off once and completes after an HTTP 429.
+description: The local agent backs off once and completes after an HTTP 429.
 seed: 42
 fixture: rate-limit-recovery.fixture.jsonl
 expected:
