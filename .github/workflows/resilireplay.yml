@@ -19,6 +19,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-      - uses: aliengineering-byte/resilireplay@v0.4.0
+      - uses: aliengineering-byte/resilireplay@v0.6.0
         with:
           scenarios: scenarios
