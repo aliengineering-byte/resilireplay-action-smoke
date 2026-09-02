@@ -17,9 +17,11 @@ one `campaign-run.json` with:
 - an applied `http-429` fault, safe recovery, at most one retry, and zero duplicate side effects;
 - telemetry disabled and a SHA-256-shaped run integrity field.
 
-Passing evidence is retained as a short-lived workflow artifact. The scheduled run is a canary for
-the pinned release and GitHub runner environment; it does not silently follow `latest`. A new
-ResiliReplay release must be reviewed and pinned explicitly here.
+Passing evidence and the dependency-free validator are retained together as a short-lived workflow
+artifact. The upload keeps the `runs/` directory, so after downloading and extracting an artifact,
+run `node verify-evidence.mjs` from the extracted root. The scheduled run is a canary for the pinned
+release and GitHub runner environment; it does not silently follow `latest`. A new ResiliReplay
+release must be reviewed and pinned explicitly here.
 
 Maintainer validation uses the released Action in GitHub Actions. The evidence validator itself is
 dependency-free and can be rerun with `node verify-evidence.mjs` after a campaign has populated

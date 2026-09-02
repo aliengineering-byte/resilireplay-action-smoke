@@ -21,6 +21,31 @@ if (paths.length !== 1) {
 
 const path = paths[0];
 const evidence = JSON.parse(await readFile(path, "utf8"));
+if (!Array.isArray(evidence.results) || evidence.results.length !== 2) {
+  throw new Error(
+    `Expected exactly two scenario results, got ${evidence.results?.length ?? "none"}`,
+  );
+}
+const resultIds = evidence.results.map((result) => result?.id);
+if (resultIds.some((id) => typeof id !== "string") || new Set(resultIds).size !== 2) {
+  throw new Error("Expected two scenario results with unique string IDs");
+}
+
+const countStatus = (status) =>
+  evidence.results.filter((result) => result.status === status).length;
+const faultResults = evidence.results.filter((result) => result.fault !== "none");
+const derivedSummary = {
+  passed: evidence.status === "complete" && countStatus("failed") === 0,
+  total: evidence.results.length,
+  passedCount: countStatus("passed"),
+  failedCount: countStatus("failed"),
+  invalidCount: countStatus("invalid"),
+  cancelledCount: countStatus("cancelled"),
+  faultCoverage:
+    faultResults.length === 0
+      ? null
+      : faultResults.filter((result) => result.faultApplied === true).length / faultResults.length,
+};
 const expectedSummary = {
   passed: true,
   total: 2,
@@ -40,7 +65,9 @@ for (const [field, expected] of Object.entries({
   telemetry: false,
 })) {
   if (evidence[field] !== expected) {
-    throw new Error(`Expected ${field}=${JSON.stringify(expected)}, got ${JSON.stringify(evidence[field])}`);
+    throw new Error(
+      `Expected ${field}=${JSON.stringify(expected)}, got ${JSON.stringify(evidence[field])}`,
+    );
   }
 }
 
@@ -52,21 +79,32 @@ for (const [field, expected] of Object.entries(expectedSummary)) {
   }
 }
 
+for (const [field, derived] of Object.entries(derivedSummary)) {
+  if (evidence.summary?.[field] !== derived) {
+    throw new Error(
+      `summary.${field} is inconsistent with results: expected ${JSON.stringify(derived)}, got ${JSON.stringify(evidence.summary?.[field])}`,
+    );
+  }
+}
+
 if (!/^[a-f0-9]{64}$/u.test(evidence.runHash)) {
   throw new Error("campaign-run.json does not contain a SHA-256 runHash");
 }
 
-const results = new Map(evidence.results?.map((result) => [result.id, result]) ?? []);
+const results = new Map(evidence.results.map((result) => [result.id, result]));
 const clean = results.get("clean-control");
 if (clean?.status !== "passed" || clean.fault !== "none" || clean.faultApplied !== false) {
   throw new Error("Clean control did not pass without an injected fault");
 }
 const recovery = results.get("bounded-rate-limit-recovery");
+const retryCount = recovery?.metrics?.retryCount;
 if (
   recovery?.status !== "passed" ||
   recovery.fault !== "http-429" ||
   recovery.faultApplied !== true ||
-  recovery.metrics?.retryCount > 1 ||
+  !Number.isInteger(retryCount) ||
+  retryCount < 0 ||
+  retryCount > 1 ||
   recovery.metrics?.duplicateSideEffectAttempts !== 0 ||
   recovery.metrics?.recoverySuccess !== true ||
   recovery.metrics?.retryBudgetCompliant !== true ||
