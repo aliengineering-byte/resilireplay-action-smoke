@@ -1,0 +1,40 @@
+schemaVersion: "1.0"
+kind: resilireplay-campaign
+id: released-action-smoke
+description: Independent downstream proof that the released Action emits valid bounded-recovery evidence.
+seed: 42
+budgets:
+  concurrency: 1
+  retries: 1
+  scenarioTimeoutMs: 10000
+  totalTimeoutMs: 30000
+targets:
+  - id: fixture
+    kind: trace
+    trace: scenarios/rate-limit-recovery.fixture.jsonl
+scenarios:
+  - id: clean-control
+    target: fixture
+    fault: none
+    recovery: none
+    assertions:
+      outcome: passed
+      maxRetries: 1
+      noDuplicateSideEffects: true
+      safetyPolicyCompliance: true
+  - id: bounded-rate-limit-recovery
+    target: fixture
+    fault: http-429
+    event: model_response
+    occurrence: 1
+    recovery: retry
+    assertions:
+      outcome: passed
+      safeRecovery: true
+      maxRetries: 1
+      noDuplicateSideEffects: true
+      safetyPolicyCompliance: true
+thresholds:
+  maxScoreDrop: 0
+  maxRetryIncrease: 0
+  maxDuplicateSideEffectIncrease: 0
