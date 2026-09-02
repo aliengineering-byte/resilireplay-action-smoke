@@ -1,6 +1,11 @@
 name: ResiliReplay Action smoke
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 5 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -8,6 +13,7 @@ permissions:
 
 jobs:
   smoke:
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -15,10 +21,23 @@ jobs:
         node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node }}
-      - uses: aliengineering-byte/resilireplay@v0.6.0
+          package-manager-cache: false
+      - name: Run the released Action
+        uses: aliengineering-byte/resilireplay@0387dee4af7aee93f530e7943f5ef966106791b5 # v0.7.0
         with:
-          scenarios: scenarios
+          campaign: scenarios/released-action.campaign.yml
+      - name: Validate released evidence
+        run: node verify-evidence.mjs
+      - name: Retain released evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: resilireplay-v0.7.0-${{ runner.os }}-node-${{ matrix.node }}
+          path: |
+            runs/
+            verify-evidence.mjs
+          if-no-files-found: error
+          retention-days: 14
