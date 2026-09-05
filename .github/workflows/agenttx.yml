@@ -1,0 +1,58 @@
+name: AgentTX Action smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Create proof with the public CLI
+        shell: bash
+        run: |
+          git config user.name "AgentTX smoke"
+          git config user.email "agenttx-smoke@users.noreply.github.com"
+          npx --yes agenttx@0.3.0 proof --output-dir .artifacts/agenttx-proof -- node -e "require('node:fs').writeFileSync('agenttx-smoke-result.txt', 'verified by AgentTX 0.3.0\\n')"
+      - name: Verify with the released Action
+        id: proof
+        uses: aliengineering-byte/agenttx@354225e8e5521631c8eb81bef6667aac923cb6d7 # v0.3.0
+        with:
+          proof-json: .artifacts/agenttx-proof/proof.json
+      - name: Assert released outputs
+        shell: bash
+        env:
+          VERDICT: ${{ steps.proof.outputs.verdict }}
+          RECEIPT_DIGEST: ${{ steps.proof.outputs.receipt-digest }}
+          PROOF_JSON: ${{ steps.proof.outputs.proof-json-path }}
+          PROOF_CARD: ${{ steps.proof.outputs.proof-card-path }}
+          TRANSACTION_STATE: ${{ steps.proof.outputs.transaction-state }}
+        run: |
+          test "$VERDICT" = "PASS"
+          test "$TRANSACTION_STATE" = "COMMITTED"
+          node -e "const fs=require('node:fs'); if(!/^[a-f0-9]{64}$/.test(process.env.RECEIPT_DIGEST)||!fs.statSync(process.env.PROOF_JSON).isFile()||!fs.statSync(process.env.PROOF_CARD).isFile()) process.exit(1)"
+      - name: Retain verified proof
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: agenttx-v0.3.0-${{ runner.os }}-node-${{ matrix.node }}
+          path: .artifacts/agenttx-proof/
+          if-no-files-found: error
+          retention-days: 14
