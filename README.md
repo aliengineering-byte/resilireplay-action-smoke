@@ -26,3 +26,12 @@ release must be reviewed and pinned explicitly here.
 Maintainer validation uses the released Action in GitHub Actions. The evidence validator itself is
 dependency-free and can be rerun with `node verify-evidence.mjs` after a campaign has populated
 `runs/`.
+
+## AgentTX released Action smoke
+
+The independent [`agenttx.yml`](.github/workflows/agenttx.yml) workflow installs the exact public
+`agenttx@0.3.0` CLI, creates a real committed proof on Linux and Windows with Node.js 20 and 24,
+and verifies it with the immutable AgentTX v0.3.0 release commit. It fails closed unless the
+Action reports `PASS`, the transaction is `COMMITTED`, the receipt digest is SHA-256-shaped, and
+both the JSON receipt and rendered Proof Card exist. The complete proof pack is retained as a
+short-lived artifact; the workflow grants only `contents: read` and never pushes its local commit.
